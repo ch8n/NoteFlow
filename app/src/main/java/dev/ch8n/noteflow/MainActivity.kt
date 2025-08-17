@@ -18,26 +18,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import dev.ch8n.noteflow.Screens.*
 import dev.ch8n.noteflow.data.DatabaseProvider
 import dev.ch8n.noteflow.ui.features.ai_digest.AiNoteGeneratorScreen
 import dev.ch8n.noteflow.ui.features.ai_digest.AiNotesGeneratorViewModel
-import dev.ch8n.noteflow.ui.features.home.HomeScreen
+import dev.ch8n.noteflow.ui.features.details.VideoDetailScreen
+import dev.ch8n.noteflow.ui.features.search.YouTubeVideoListViewModel
+import dev.ch8n.noteflow.ui.features.search.YoutubeSearchScreen
 import dev.ch8n.noteflow.ui.features.setting.SettingsScreen
 import dev.ch8n.noteflow.ui.features.setting.SettingsViewModel
 import dev.ch8n.noteflow.ui.features.transcription.TranscriptionScreen
 import dev.ch8n.noteflow.ui.features.transcription.TranscriptionViewModel
 import dev.ch8n.noteflow.ui.theme.NoteFlowTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 
@@ -62,11 +61,13 @@ object AppVideoLinkManager {
 
 class MainActivity : ComponentActivity() {
 
+    var selectedScreen = mutableStateOf<Screens>(Screens.VideoSearch)
     private fun handleIncomingIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
             if (!sharedText.isNullOrEmpty()) {
                 AppVideoLinkManager.youtubeUrl.value = sharedText
+                selectedScreen.value = Screens.VideoDetail
             }
         }
     }
@@ -79,13 +80,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             NoteFlowTheme {
                 val context = LocalContext.current
-                val intentSharedContent = AppVideoLinkManager.youtubeUrl.value
                 val appDatabase = remember(context) { DatabaseProvider.getDatabase(context) }
                 val settingsViewModel = remember { SettingsViewModel(application) }
-                var selectedScreen by remember { mutableStateOf<Screens>(Screens.Home) }
 
                 BackHandler {
-                    selectedScreen = Screens.Home
+                    selectedScreen.value = Screens.VideoSearch
                 }
 
                 Scaffold() { innerPadding ->
@@ -101,19 +100,19 @@ class MainActivity : ComponentActivity() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             OutlinedButton(onClick = {
-                                selectedScreen = Screens.Home
+                                selectedScreen.value = Screens.VideoSearch
                             }) {
                                 Text("Home 🏠")
                             }
                             OutlinedButton(onClick = {
-                                selectedScreen = Screens.Settings
+                                selectedScreen.value = Screens.Settings
                             }) {
                                 Text("Settings ⚙️")
                             }
                         }
 
-                        when (selectedScreen) {
-                            Screens.Settings -> {
+                        when (selectedScreen.value) {
+                            Settings -> {
                                 SettingsScreen(
                                     modifier = Modifier
                                         .fillMaxSize(),
@@ -121,25 +120,25 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            is Screens.Home -> {
-                                HomeScreen(
+                            is VideoDetail -> {
+                                VideoDetailScreen(
                                     modifier = Modifier
                                         .fillMaxSize(),
                                     onTranscriptionDownload = {
-                                        selectedScreen = Transcription(it)
+                                        selectedScreen.value = Transcription(it)
                                     },
                                     onAiDigest = {
-                                        selectedScreen = Screens.AiNoteGenerator(it)
+                                        selectedScreen.value = AiNoteGenerator(it)
                                     },
                                     defaultYoutubeUrl = AppVideoLinkManager.youtubeUrl.value
                                 )
                             }
 
-                            is Screens.Transcription -> {
+                            is Transcription -> {
                                 TranscriptionScreen(
                                     modifier = Modifier
                                         .fillMaxSize(),
-                                    youtubeUrl = (selectedScreen as Screens.Transcription).youtubeUrl,
+                                    youtubeUrl = (selectedScreen.value as Transcription).youtubeUrl,
                                     transcriptionViewModel = remember {
                                         TranscriptionViewModel(
                                             appDatabase
@@ -148,17 +147,35 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            is Screens.AiNoteGenerator -> {
+                            is AiNoteGenerator -> {
                                 AiNoteGeneratorScreen(
                                     modifier = Modifier
                                         .fillMaxSize(),
-                                    youtubeUrl = (selectedScreen as Screens.AiNoteGenerator).youtubeUrl,
+                                    youtubeUrl = (selectedScreen.value as AiNoteGenerator).youtubeUrl,
                                     aiNotesGeneratorViewModel = remember {
                                         AiNotesGeneratorViewModel(
                                             appDatabase,
                                             settingsViewModel
                                         )
                                     },
+                                )
+                            }
+
+                            VideoSearch -> {
+                                YoutubeSearchScreen(
+                                    modifier = Modifier.fillMaxSize(),
+                                    youtubeVideoListViewModel = remember {
+                                        YouTubeVideoListViewModel(appDatabase)
+                                    },
+                                    onVideoDetailsClicked = { video ->
+                                        AppVideoLinkManager.youtubeUrl.value = video.videoUrl
+                                            ?: return@YoutubeSearchScreen runBlocking {
+                                                MessageUtil.showToast(
+                                                    "video.videoUrl is null"
+                                                )
+                                            }
+                                        selectedScreen.value = Screens.VideoDetail
+                                    }
                                 )
                             }
                         }
@@ -171,24 +188,8 @@ class MainActivity : ComponentActivity() {
 
 sealed class Screens {
     object Settings : Screens()
-    object Home : Screens()
+    object VideoDetail : Screens()
+    object VideoSearch : Screens()
     data class Transcription(val youtubeUrl: String) : Screens()
-
     data class AiNoteGenerator(val youtubeUrl: String) : Screens()
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    NoteFlowTheme {
-        Greeting("Android")
-    }
 }

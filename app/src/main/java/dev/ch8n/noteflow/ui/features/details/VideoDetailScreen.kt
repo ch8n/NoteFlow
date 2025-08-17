@@ -1,16 +1,21 @@
-package dev.ch8n.noteflow.ui.features.home
+package dev.ch8n.noteflow.ui.features.details
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -36,7 +41,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @Composable
-fun HomeScreen(
+fun VideoDetailScreen(
     modifier: Modifier = Modifier,
     onTranscriptionDownload: (youtubeUrl: String) -> Unit,
     onAiDigest: (youtubeUrl: String) -> Unit,
@@ -72,17 +77,12 @@ fun HomeScreen(
             }
         }
 
-        if (youTubeVideo != null) {
-            YouTubeVideoDetail(youTubeVideo!!)
-        } else {
-            item {
-                Box(
-                    Modifier
-                        .size(200.dp)
-                        .background(Color.LightGray, RoundedCornerShape(8))
-                )
+        YouTubeVideoDetail(
+            youTubeVideo,
+            onVideClicked = { video ->
+                // do nothing
             }
-        }
+        )
 
         item {
             OutlinedButton(onClick = {
@@ -113,27 +113,68 @@ class HomeScreenViewModel : ViewModel() {
 }
 
 
-fun LazyListScope.YouTubeVideoDetail(video: YouTubeVideoEntity) {
+fun LazyListScope.YouTubeVideoDetail(
+    video: YouTubeVideoEntity?,
+    onVideClicked: (video: YouTubeVideoEntity) -> Unit
+) {
 
     item {
-        AsyncImage(
-            model = video.thumbnailUrl,
-            contentDescription = "Thumbnail",
+        Column(
             modifier = Modifier
+                .padding(16.dp)
                 .fillMaxWidth()
-                .aspectRatio(16 / 9f)
-        )
-    }
+                .clickable {
+                    video ?: return@clickable
+                    onVideClicked.invoke(video)
+                },
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
 
-    item {
-        Text(text = video.title ?: "No title", style = MaterialTheme.typography.headlineSmall)
-    }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .aspectRatio(16 / 9f)
+            ) {
+                if (video?.thumbnailUrl != null) {
+                    AsyncImage(
+                        model = video.thumbnailUrl,
+                        contentDescription = "Thumbnail",
+                        modifier = Modifier
+                            .fillMaxSize()
+                        //.aspectRatio(16 / 9f)
+                    )
+                } else {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color.LightGray, RoundedCornerShape(8))
+                    )
+                }
+            }
 
-    item {
-        Text(
-            text = video.description ?: "No description",
-            style = MaterialTheme.typography.bodyMedium
-        )
+
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = video?.title ?: "No title",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+
+                Text(
+                    text = video?.description ?: "No description",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Spacer(Modifier.size(8.dp))
+
+                HorizontalDivider()
+            }
+        }
     }
 }
 
