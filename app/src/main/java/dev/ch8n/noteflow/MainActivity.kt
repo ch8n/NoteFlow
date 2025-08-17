@@ -27,6 +27,7 @@ import dev.ch8n.noteflow.Screens.*
 import dev.ch8n.noteflow.data.DatabaseProvider
 import dev.ch8n.noteflow.ui.features.ai_digest.AiNoteGeneratorScreen
 import dev.ch8n.noteflow.ui.features.ai_digest.AiNotesGeneratorViewModel
+import dev.ch8n.noteflow.ui.features.details.HomeScreenViewModel
 import dev.ch8n.noteflow.ui.features.details.VideoDetailScreen
 import dev.ch8n.noteflow.ui.features.search.YouTubeVideoListViewModel
 import dev.ch8n.noteflow.ui.features.search.YoutubeSearchScreen
@@ -130,7 +131,8 @@ class MainActivity : ComponentActivity() {
                                     onAiDigest = {
                                         selectedScreen.value = AiNoteGenerator(it)
                                     },
-                                    defaultYoutubeUrl = AppVideoLinkManager.youtubeUrl.value
+                                    defaultYoutubeUrl = AppVideoLinkManager.youtubeUrl.value,
+                                    viewModel = remember { HomeScreenViewModel(appDatabase) }
                                 )
                             }
 

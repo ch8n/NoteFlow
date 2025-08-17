@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,22 +34,50 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
+import dev.ch8n.noteflow.MessageUtil
+import dev.ch8n.noteflow.data.AppDatabase
 import dev.ch8n.noteflow.data.YouTubeVideoEntity
+import dev.ch8n.noteflow.data.extractVideoId
 import dev.ch8n.noteflow.data.fetchYouTubeVideoData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+
 @Composable
 fun VideoDetailScreen(
     modifier: Modifier = Modifier,
+    viewModel: HomeScreenViewModel,
     onTranscriptionDownload: (youtubeUrl: String) -> Unit,
     onAiDigest: (youtubeUrl: String) -> Unit,
     defaultYoutubeUrl: String?
 ) {
-    val viewmodel = remember { HomeScreenViewModel() }
-    val youTubeVideo by viewmodel.youtubeVideoEntityData.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.getLocalYoutubeEntity(defaultYoutubeUrl ?: "")
+    }
+
+    VideoDetailContent(
+        modifier = modifier,
+        viewModel = viewModel,
+        onTranscriptionDownload = onTranscriptionDownload,
+        onAiDigest = onAiDigest,
+        defaultYoutubeUrl = defaultYoutubeUrl
+    )
+}
+
+
+
+    @Composable
+fun VideoDetailContent(
+    modifier: Modifier = Modifier,
+    viewModel: HomeScreenViewModel,
+    onTranscriptionDownload: (youtubeUrl: String) -> Unit,
+    onAiDigest: (youtubeUrl: String) -> Unit,
+    defaultYoutubeUrl: String?
+) {
+    val youTubeVideo by viewModel.youtubeVideoEntityData.collectAsState()
     var youtubeUrl by remember { mutableStateOf(defaultYoutubeUrl ?: "") }
 
     LazyColumn(
@@ -71,7 +100,7 @@ fun VideoDetailScreen(
 
         item {
             OutlinedButton(onClick = {
-                viewmodel.fetchYouTubeVideo(youtubeUrl)
+                viewModel.fetchRemoteYouTubeVideo(youtubeUrl)
             }) {
                 Text("Fetch Details")
             }
@@ -100,14 +129,33 @@ fun VideoDetailScreen(
     }
 }
 
-class HomeScreenViewModel : ViewModel() {
+class HomeScreenViewModel(appDatabase: AppDatabase) : ViewModel() {
+
+    private val youTubeVideoDao = appDatabase.youtubeVideoDao()
 
     val youtubeVideoEntityData = MutableStateFlow<YouTubeVideoEntity?>(null)
 
-    fun fetchYouTubeVideo(youtubeUrl: String) {
+    fun getLocalYoutubeEntity(youtubeUrl: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val videoId = extractVideoId(youtubeUrl)
+                ?: return@launch MessageUtil.showToast("Video id null from $youtubeUrl")
+            val videoEntity = youTubeVideoDao.getVideoById(videoId)
+            youtubeVideoEntityData.update { videoEntity }
+        }
+    }
+
+    fun fetchRemoteYouTubeVideo(youtubeUrl: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val result = fetchYouTubeVideoData(youtubeUrl)
             youtubeVideoEntityData.update { result }
+            result ?: return@launch MessageUtil.showToast("fetch result is not saved due to null")
+            saveYouTubeVideo(result)
+        }
+    }
+
+    fun saveYouTubeVideo(video: YouTubeVideoEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            youTubeVideoDao.updateVideo(video)
         }
     }
 }
