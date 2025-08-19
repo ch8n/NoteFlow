@@ -48,10 +48,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun VideoDetailScreen(
     modifier: Modifier = Modifier,
-    viewModel: HomeScreenViewModel,
     onTranscriptionDownload: (youtubeUrl: String) -> Unit,
     onAiDigest: (youtubeUrl: String) -> Unit,
-    defaultYoutubeUrl: String?
+    defaultYoutubeUrl: String?,
+    viewModel: HomeScreenViewModel
 ) {
 
     LaunchedEffect(Unit) {

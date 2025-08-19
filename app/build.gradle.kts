@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp") version "2.0.21-1.0.28"
+    alias(libs.plugins.jetbrains.kotlin.serialization)
 }
 
 android {
@@ -73,4 +74,10 @@ dependencies {
     ksp("androidx.room:room-compiler:2.7.0-alpha02") // or use ksp
     implementation("androidx.room:room-ktx:2.7.0-alpha02")
     implementation("com.github.jeziellago:compose-markdown:0.5.7")
+
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.androidx.material3.adaptive.navigation3)
+    implementation(libs.kotlinx.serialization.core)
 }

@@ -16,12 +16,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -30,7 +26,11 @@ import dev.ch8n.noteflow.data.AppDatabase
 import dev.ch8n.noteflow.data.YouTubeVideoEntity
 import dev.ch8n.noteflow.ui.features.details.YouTubeVideoDetail
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -39,36 +39,57 @@ import kotlinx.coroutines.launch
 fun YoutubeSearchScreen(
     modifier: Modifier = Modifier,
     youtubeVideoListViewModel: YouTubeVideoListViewModel,
-    onVideoDetailsClicked: (video: YouTubeVideoEntity) -> Unit
+    navigateToVideDetails: (video: YouTubeVideoEntity) -> Unit
 ) {
 
-    LaunchedEffect(Unit) {
-        youtubeVideoListViewModel.loadVideos()
-    }
-
     val videoList by youtubeVideoListViewModel.videoList.collectAsState()
+    val searchQuery by youtubeVideoListViewModel.searchQuery.collectAsState("")
 
     YouTubeVideoListContent(
         modifier = modifier,
         videos = videoList,
-        onVideoDetailsClicked = { video ->
-            onVideoDetailsClicked.invoke(video)
-        }
+        searchQuery = searchQuery,
+        updateQuery = youtubeVideoListViewModel::updateQuery,
+        onVideoDetailsClicked = navigateToVideDetails
     )
 }
 
 
 class YouTubeVideoListViewModel(appDatabase: AppDatabase) : ViewModel() {
     private val youtubeVideoDao = appDatabase.youtubeVideoDao()
-
     val videoList = MutableStateFlow<List<YouTubeVideoEntity>>(emptyList())
+    private val _searchQuery = MutableStateFlow<String>("")
 
-    fun loadVideos() {
+    @OptIn(FlowPreview::class)
+    val searchQuery = _searchQuery
+        .debounce(500)
+        .distinctUntilChanged()
+        .onEach { query ->
+            if (query.isBlank()) {
+                loadVideos()
+            } else {
+                filterVideos(query)
+            }
+        }
+
+    fun updateQuery(query: String) {
+        _searchQuery.update { query }
+    }
+
+    private fun loadVideos() {
         viewModelScope.launch(Dispatchers.IO) {
             val videos = youtubeVideoDao.getAllVideos()
             videoList.update { videos }
         }
     }
+
+    private fun filterVideos(query: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val videos = youtubeVideoDao.getAllVideosByQuery(query)
+            videoList.update { videos }
+        }
+    }
+
 }
 
 
@@ -76,18 +97,11 @@ class YouTubeVideoListViewModel(appDatabase: AppDatabase) : ViewModel() {
 @Composable
 fun YouTubeVideoListContent(
     modifier: Modifier = Modifier,
+    searchQuery: String = "",
+    updateQuery: (query: String) -> Unit = {},
     videos: List<YouTubeVideoEntity>,
     onVideoDetailsClicked: (video: YouTubeVideoEntity) -> Unit = {}
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-
-    val filteredVideos = remember(searchQuery, videos) {
-        if (searchQuery.isBlank()) videos
-        else videos.filter {
-            it.title?.contains(searchQuery, ignoreCase = true) == true ||
-                    it.description?.contains(searchQuery, ignoreCase = true) == true
-        }
-    }
 
     LazyColumn(modifier = modifier) {
         stickyHeader {
@@ -102,12 +116,12 @@ fun YouTubeVideoListContent(
                 ) {
                     OutlinedTextField(
                         value = searchQuery,
-                        onValueChange = { searchQuery = it },
                         label = { Text("Search") },
+                        onValueChange = updateQuery,
                         modifier = Modifier.fillMaxWidth(),
                         trailingIcon = {
                             IconButton(onClick = {
-                                searchQuery = ""
+                                updateQuery.invoke("")
                             }) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
@@ -122,10 +136,10 @@ fun YouTubeVideoListContent(
             }
         }
 
-        repeat(filteredVideos.size) { index ->
+        repeat(videos.size) { index ->
             YouTubeVideoDetail(
-                filteredVideos.get(index),
-                onVideClicked = {video ->
+                video = videos.get(index),
+                onVideClicked = { video ->
                     onVideoDetailsClicked.invoke(video)
                 }
             )

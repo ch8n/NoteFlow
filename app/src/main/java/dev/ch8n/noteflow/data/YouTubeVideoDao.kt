@@ -35,6 +35,9 @@ interface YouTubeVideoDao {
     @Query("SELECT * FROM youtube_videos ORDER BY title ASC")
     suspend fun getAllVideos(): List<YouTubeVideoEntity>
 
+    @Query("SELECT * FROM youtube_videos WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' ORDER BY title ASC")
+    suspend fun getAllVideosByQuery(query: String): List<YouTubeVideoEntity>
+
     @Upsert
     suspend fun updateVideo(video: YouTubeVideoEntity)
 

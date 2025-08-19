@@ -7,9 +7,19 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,7 +57,9 @@ fun TranscriptionScreen(
     youtubeUrl: String,
     transcriptionViewModel: TranscriptionViewModel
 ) {
-    LazyColumn(modifier = modifier) {
+    LazyColumn(modifier = modifier.background(
+        MaterialTheme.colorScheme.background
+    )) {
         TranscriptDownloaderContent(
             youtubeUrl,
             transcriptionViewModel = transcriptionViewModel,
@@ -62,15 +74,16 @@ class TranscriptionViewModel(appDatabase: AppDatabase) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val youtubeId = extractVideoId(youtubeUrl)
             if (youtubeId != null) {
-                val youTubeVideoEntity = youtubeVideoDao.getVideoById(youtubeId) ?: YouTubeVideoEntity(
-                    videoId = youtubeId,
-                    videoUrl = youtubeUrl,
-                    title = null,
-                    description = null,
-                    thumbnailUrl = null,
-                    transcription = null,
-                    aiDigest = null
-                )
+                val youTubeVideoEntity =
+                    youtubeVideoDao.getVideoById(youtubeId) ?: YouTubeVideoEntity(
+                        videoId = youtubeId,
+                        videoUrl = youtubeUrl,
+                        title = null,
+                        description = null,
+                        thumbnailUrl = null,
+                        transcription = null,
+                        aiDigest = null
+                    )
                 val updatedYouTubeVideoEntity = youTubeVideoEntity.copy(
                     transcription = transcription
                 )
@@ -198,10 +211,30 @@ fun LazyListScope.TranscriptDownloaderContent(
             }
         }
 
-        AndroidView(
-            factory = { webView },
-            modifier = Modifier.height(0.5.dp)
-        )
+        var isExpanded by remember { mutableStateOf(false) }
+        val collapseModifier = Modifier.fillMaxWidth().height(55.dp)
+        val expandedModifier = Modifier.fillMaxWidth().height(500.dp)
+
+        Box(
+            modifier = Modifier.then(
+                if (isExpanded) expandedModifier else collapseModifier
+            )
+        ) {
+            AndroidView(
+                factory = { webView },
+                modifier = Modifier.fillMaxWidth().background(
+                    MaterialTheme.colorScheme.background
+                )
+            )
+            IconButton(onClick = {
+                isExpanded = !isExpanded
+            }) {
+                Icon(
+                    if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Expand/Collapse"
+                )
+            }
+        }
 
         Text(
             text = transcriptText,

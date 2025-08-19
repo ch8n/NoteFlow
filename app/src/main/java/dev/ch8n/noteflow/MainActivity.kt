@@ -169,7 +169,7 @@ class MainActivity : ComponentActivity() {
                                     youtubeVideoListViewModel = remember {
                                         YouTubeVideoListViewModel(appDatabase)
                                     },
-                                    onVideoDetailsClicked = { video ->
+                                    navigateToVideDetails = { video ->
                                         AppVideoLinkManager.youtubeUrl.value = video.videoUrl
                                             ?: return@YoutubeSearchScreen runBlocking {
                                                 MessageUtil.showToast(

@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,7 +62,7 @@ fun SettingsScreen(
 }
 
 
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+class SettingsViewModel(appContext: Context) : ViewModel() {
     companion object {
         private const val PREFS_NAME = "koog_settings"
         private const val KEY_API_ENDPOINT = "api_endpoint"
@@ -69,7 +70,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         private const val KEY_API_KEY = "api_key"
     }
 
-    private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs = appContext.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     val apiEndpoint = MutableStateFlow(prefs.getString(KEY_API_ENDPOINT, "") ?: "")
     val modelName = MutableStateFlow(prefs.getString(KEY_MODEL_NAME, "") ?: "")
