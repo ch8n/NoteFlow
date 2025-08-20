@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -135,12 +136,6 @@ fun VideoDetailContent(
                         .fillMaxWidth()
                         .aspectRatio(16 / 9f)
                 ) {
-                    IconButton(onClick = {
-                        onDeleteYoutubeVideo(youTubeVideo)
-                    }) {
-                        Icon(Icons.Default.Delete, contentDescription = "delete")
-                    }
-
                     if (!youTubeVideo.thumbnailUrl.isNullOrEmpty()) {
                         AsyncImage(
                             model = youTubeVideo.thumbnailUrl,
@@ -153,6 +148,23 @@ fun VideoDetailContent(
                             Modifier
                                 .fillMaxSize()
                                 .background(Color.LightGray, RoundedCornerShape(8))
+                        )
+                    }
+
+                    IconButton(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .align(Alignment.TopEnd)
+                            .background(Color.LightGray, CircleShape)
+                        ,
+                        onClick = {
+                            onDeleteYoutubeVideo(youTubeVideo)
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "delete",
+                            tint = Color.DarkGray
                         )
                     }
                 }
@@ -198,16 +210,21 @@ fun VideoDetailContent(
         }
 
         stickyHeader {
+
             OutlinedButton(onClick = {
                 isTranscriptionBottomSheetVisible = !isTranscriptionBottomSheetVisible
             }) {
-                Text("Download Transcription")
+                val words = (youTubeVideo.transcription?:"")
+                    .split(" ")
+                    .count { it.isNotEmpty() }
+
+                Text("Download Transcription ⤵️ | $words")
             }
 
             OutlinedButton(onClick = {
                 isAiNotesBottomSheetVisible = !isAiNotesBottomSheetVisible
             }) {
-                Text("Generate AI Notes")
+                Text("Generate AI Notes ✨")
             }
         }
     }
