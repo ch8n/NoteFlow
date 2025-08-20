@@ -2,6 +2,7 @@ package dev.ch8n.noteflow.ui.features.search
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -39,7 +42,8 @@ import kotlinx.coroutines.launch
 fun YoutubeSearchScreen(
     modifier: Modifier = Modifier,
     youtubeVideoListViewModel: YouTubeVideoListViewModel,
-    navigateToVideDetails: (video: YouTubeVideoEntity) -> Unit
+    navigateToVideDetails: (video: YouTubeVideoEntity) -> Unit,
+    navigateToSettings: () -> Unit
 ) {
 
     val videoList by youtubeVideoListViewModel.videoList.collectAsState()
@@ -50,7 +54,8 @@ fun YoutubeSearchScreen(
         videos = videoList,
         searchQuery = searchQuery,
         updateQuery = youtubeVideoListViewModel::updateQuery,
-        onVideoDetailsClicked = navigateToVideDetails
+        onVideoDetailsClicked = navigateToVideDetails,
+        onSettingsClicked = navigateToSettings
     )
 }
 
@@ -61,7 +66,8 @@ fun YouTubeVideoListContent(
     searchQuery: String = "",
     updateQuery: (query: String) -> Unit = {},
     videos: List<YouTubeVideoEntity>,
-    onVideoDetailsClicked: (video: YouTubeVideoEntity) -> Unit = {}
+    onVideoDetailsClicked: (video: YouTubeVideoEntity) -> Unit = {},
+    onSettingsClicked: () -> Unit = {}
 ) {
     LazyColumn(modifier = modifier) {
         stickyHeader {
@@ -72,13 +78,15 @@ fun YouTubeVideoListContent(
                 Row(
                     modifier = Modifier
                         .background(MaterialTheme.colorScheme.surface)
-                        .padding(16.dp)
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     OutlinedTextField(
                         value = searchQuery,
                         label = { Text("Search") },
                         onValueChange = updateQuery,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(0.85f),
                         trailingIcon = {
                             IconButton(onClick = {
                                 updateQuery.invoke("")
@@ -92,6 +100,15 @@ fun YouTubeVideoListContent(
                             }
                         }
                     )
+
+                    IconButton(onClick = onSettingsClicked) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = "",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }

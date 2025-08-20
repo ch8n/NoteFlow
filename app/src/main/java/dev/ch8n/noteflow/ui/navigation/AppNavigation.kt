@@ -45,7 +45,10 @@ fun AppNavigation(
                             backStack.add(VideoDetailsScreen(video))
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        youtubeVideoListViewModel = remember { YouTubeVideoListViewModel(appDatabase) }
+                        youtubeVideoListViewModel = remember { YouTubeVideoListViewModel(appDatabase) },
+                        navigateToSettings = {
+                            backStack.add(AppSettingScreen)
+                        }
                     )
                 }
 

@@ -113,13 +113,6 @@ fun AiNoteGeneratorScreen(
     val aiResponse by aiNotesGeneratorViewModel.aiResponse.collectAsState()
     val aiLimitCount by aiNotesGeneratorViewModel.aiLimitCount.collectAsState()
 
-    DisposableEffect(Unit) {
-        aiNotesGeneratorViewModel.observeSharePrefs(prefs)
-        onDispose {
-            aiNotesGeneratorViewModel.unregsiterPrefs(prefs)
-        }
-    }
-
     LazyColumn(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -130,10 +123,11 @@ fun AiNoteGeneratorScreen(
         }
 
         item {
-            Column(Modifier
-                .fillMaxWidth()
-                .heightIn(max = 500.dp)
-                .verticalScroll(rememberScrollState())
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 MarkdownText(
                     aiResponse.ifEmpty {
@@ -157,10 +151,12 @@ fun AiNoteGeneratorScreen(
 
                 OutlinedButton(
                     onClick = {
-                        aiNotesGeneratorViewModel.updateAIDailyLimit(prefs)
                         aiNotesGeneratorViewModel.generateAiNotes(
                             prompt = "You are a helpful assistant. Convert the following Youtube Video Transcription to TLDR",
-                            youTubeVideoEntity = youTubeVideo
+                            youTubeVideoEntity = youTubeVideo,
+                            onComplete = {
+                                aiNotesGeneratorViewModel.updateAIDailyLimit(prefs)
+                            }
                         )
                     }
                 ) {
@@ -192,7 +188,11 @@ class AiNotesGeneratorViewModel(
     val aiResponse = MutableStateFlow("")
     val aiLimitCount = MutableStateFlow(0)
 
-    fun generateAiNotes(prompt: String, youTubeVideoEntity: YouTubeVideoEntity) {
+    fun generateAiNotes(
+        prompt: String,
+        youTubeVideoEntity: YouTubeVideoEntity,
+        onComplete : () -> Unit
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val transcription = youTubeVideoEntity.transcription
@@ -205,9 +205,15 @@ class AiNotesGeneratorViewModel(
                 )
                 val response = aiAgent.run(transcription)
                 aiResponse.update { response }
+                withContext(Dispatchers.Main.immediate) {
+                    onComplete.invoke()
+                }
             } catch (error: Exception) {
                 Log.e("AiNotesGeneratorViewModel", "generateAiNotes: ", error)
                 aiResponse.update { "Error: ${error.message}" }
+                withContext(Dispatchers.Main.immediate) {
+                    onComplete.invoke()
+                }
             }
         }
     }
@@ -226,28 +232,6 @@ class AiNotesGeneratorViewModel(
         }
     }
 
-    private val listener: SharedPreferences.OnSharedPreferenceChangeListener =
-        object : SharedPreferences.OnSharedPreferenceChangeListener {
-            override fun onSharedPreferenceChanged(
-                sharedPreferences: SharedPreferences?,
-                key: String?
-            ) {
-                sharedPreferences ?: return
-                if (key == "counter") {
-                    val count = sharedPreferences.getInt(key, 0)
-                    aiLimitCount.update { count }
-                }
-            }
-        }
-
-    fun observeSharePrefs(prefs: SharedPreferences) {
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-    }
-
-    fun unregsiterPrefs(prefs: SharedPreferences) {
-        prefs.unregisterOnSharedPreferenceChangeListener(listener)
-    }
-
     fun updateAIDailyLimit(prefs: SharedPreferences) {
         viewModelScope.launch(Dispatchers.IO) {
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -263,6 +247,9 @@ class AiNotesGeneratorViewModel(
                 val newCount = (currentCount + 1).coerceAtMost(50)
                 putInt("counter", newCount)
             }
+
+            val updatedCount = prefs.getInt("counter", 0)
+            aiLimitCount.update { updatedCount }
         }
     }
 }

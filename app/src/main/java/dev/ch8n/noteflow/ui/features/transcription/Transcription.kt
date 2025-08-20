@@ -213,7 +213,7 @@ fun createTranscriptionWebView(
                                 ) {
                                     Toast.makeText(
                                         view.context,
-                                        "Download started $it",
+                                        "Download started",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
