@@ -58,7 +58,8 @@ fun AiDigestModelBottomSheet(
     isBottomSheetVisible: Boolean,
     setBottomSheetVisibility: (Boolean) -> Unit,
     youTubeVideo: YouTubeVideoEntity,
-    aiNotesGeneratorViewModel: AiNotesGeneratorViewModel
+    aiNotesGeneratorViewModel: AiNotesGeneratorViewModel,
+    onAiNotesSaved: (notes: String) -> Unit
 ) {
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -91,6 +92,7 @@ fun AiDigestModelBottomSheet(
             aiNotesGeneratorViewModel = aiNotesGeneratorViewModel,
             onAiNotesSaved = {
                 setBottomSheetVisibility.invoke(false)
+                onAiNotesSaved.invoke(it)
             }
         )
     }
@@ -101,7 +103,7 @@ fun AiNoteGeneratorScreen(
     modifier: Modifier = Modifier,
     youTubeVideo: YouTubeVideoEntity,
     aiNotesGeneratorViewModel: AiNotesGeneratorViewModel,
-    onAiNotesSaved: () -> Unit
+    onAiNotesSaved: (aiResponse: String) -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember(context) {
@@ -152,7 +154,7 @@ fun AiNoteGeneratorScreen(
                 OutlinedButton(
                     onClick = {
                         aiNotesGeneratorViewModel.generateAiNotes(
-                            prompt = "You are a helpful assistant. Convert the following Youtube Video Transcription to TLDR",
+                            prompt = "You are a helpful assistant. Convert the following Youtube Video Transcription to TLDR in English language",
                             youTubeVideoEntity = youTubeVideo,
                             onComplete = {
                                 aiNotesGeneratorViewModel.updateAIDailyLimit(prefs)
@@ -191,7 +193,7 @@ class AiNotesGeneratorViewModel(
     fun generateAiNotes(
         prompt: String,
         youTubeVideoEntity: YouTubeVideoEntity,
-        onComplete : () -> Unit
+        onComplete: () -> Unit
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -221,14 +223,14 @@ class AiNotesGeneratorViewModel(
     fun saveAiDigest(
         youTubeVideoEntity: YouTubeVideoEntity,
         aiResponse: String,
-        onAiNotesSaved: () -> Unit
+        onAiNotesSaved: (aiResponse: String) -> Unit
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val updated = youTubeVideoEntity.copy(aiDigest = aiResponse)
             youTubeVideoDao.updateVideo(updated)
             withContext(Dispatchers.Main.immediate) {
                 MessageUtil.showToast("Saved!")
-                onAiNotesSaved.invoke()
+                onAiNotesSaved.invoke(aiResponse)
             }
         }
     }

@@ -115,6 +115,7 @@ fun VideoDetailContent(
 
     var isTranscriptionBottomSheetVisible by remember { mutableStateOf(false) }
     var isAiNotesBottomSheetVisible by remember { mutableStateOf(false) }
+    var hackUpdatedAiNotes by remember { mutableStateOf("") }
 
     LazyColumn(
         modifier = modifier
@@ -155,8 +156,7 @@ fun VideoDetailContent(
                         modifier = Modifier
                             .size(24.dp)
                             .align(Alignment.TopEnd)
-                            .background(Color.LightGray, CircleShape)
-                        ,
+                            .background(Color.LightGray, CircleShape),
                         onClick = {
                             onDeleteYoutubeVideo(youTubeVideo)
                         }
@@ -202,15 +202,16 @@ fun VideoDetailContent(
         }
 
         stickyHeader {
-            Column (
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(vertical = 8.dp),
             ) {
                 OutlinedButton(onClick = {
                     isTranscriptionBottomSheetVisible = !isTranscriptionBottomSheetVisible
                 }) {
-                    val words = (youTubeVideo.transcription?:"")
+                    val words = (youTubeVideo.transcription ?: "")
                         .split(" ")
                         .count { it.isNotEmpty() }
 
@@ -227,9 +228,11 @@ fun VideoDetailContent(
 
         item {
             MarkdownText(
-                youTubeVideo.aiDigest
-                    ?.ifEmpty { "### No AI Digest, Click Generate" }
-                    ?: "### No AI Digest, Click Generate",
+                hackUpdatedAiNotes.ifEmpty {
+                    youTubeVideo.aiDigest
+                        ?.ifEmpty { "### No AI Digest, Click Generate" }
+                        ?: "### No AI Digest, Click Generate"
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 100.dp),
@@ -251,7 +254,10 @@ fun VideoDetailContent(
             isBottomSheetVisible = isAiNotesBottomSheetVisible,
             setBottomSheetVisibility = { isAiNotesBottomSheetVisible = it },
             youTubeVideo = youTubeVideo,
-            aiNotesGeneratorViewModel = aiNotesGeneratorViewModel
+            aiNotesGeneratorViewModel = aiNotesGeneratorViewModel,
+            onAiNotesSaved = { notes ->
+                hackUpdatedAiNotes = notes
+            }
         )
     }
 }
