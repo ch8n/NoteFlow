@@ -1,5 +1,7 @@
 package dev.ch8n.noteflow.ui.features.transcription
 
+import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.webkit.PermissionRequest
@@ -8,8 +10,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -18,15 +20,22 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -36,195 +45,257 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.ch8n.noteflow.data.AppDatabase
 import dev.ch8n.noteflow.data.YouTubeVideoEntity
-import dev.ch8n.noteflow.data.extractVideoId
 import dev.ch8n.noteflow.data.httpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 @Composable
 fun TranscriptionScreen(
     modifier: Modifier = Modifier,
-    youtubeUrl: String,
+    youTubeVideo: YouTubeVideoEntity,
     transcriptionViewModel: TranscriptionViewModel
 ) {
-    LazyColumn(modifier = modifier.background(
-        MaterialTheme.colorScheme.background
-    )) {
-        TranscriptDownloaderContent(
-            youtubeUrl,
-            transcriptionViewModel = transcriptionViewModel,
+    LazyColumn(
+        modifier = modifier.background(
+            MaterialTheme.colorScheme.background
         )
+    ) {
+        TranscriptDownloaderContent(
+            youTubeVideo = youTubeVideo,
+            refreshTranscriptState = transcriptionViewModel.refreshTranscript,
+            onTranscriptionDownload = { transcript, errorMessage ->
+                transcriptionViewModel.saveTranscription(youTubeVideo, transcript, errorMessage)
+            }
+        )
+
+        stickyHeader {
+            OutlinedButton(onClick = {
+                transcriptionViewModel.getOrFetchTranscript(youTubeVideo)
+            }) {
+                Text("Download Transcription")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TranscriptionModelBottomSheet(
+    modifier: Modifier = Modifier,
+    isBottomSheetVisible: Boolean,
+    setBottomSheetVisibility: (Boolean) -> Unit,
+    youTubeVideo: YouTubeVideoEntity,
+    transcriptionViewModel: TranscriptionViewModel,
+) {
+    val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(isBottomSheetVisible) {
+        if (isBottomSheetVisible) {
+            scope.launch {
+                sheetState.expand()
+            }
+        } else {
+            scope.launch {
+                sheetState.hide()
+            }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = {
+            setBottomSheetVisibility.invoke(false)
+        },
+        sheetState = sheetState
+    ) {
+        TranscriptionScreen(
+            modifier = modifier,
+            youTubeVideo = youTubeVideo,
+            transcriptionViewModel = transcriptionViewModel
+        )
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+fun createTranscriptionWebView(
+    context: Context,
+    onTranscriptionDownload: (transcript: String, errorMessage: String) -> Unit,
+): WebView {
+    return WebView(context).apply {
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.userAgentString = settings.userAgentString + " AndroidApp"
+
+        settings.mediaPlaybackRequiresUserGesture = true
+
+        webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest) {
+                // Block all permissions including camera
+                request.deny()
+            }
+        }
+
+        setDownloadListener { url, _, _, _, _ ->
+            CoroutineScope(Dispatchers.IO).launch {
+                if (url.startsWith("data:")) {
+                    val encodedContent = url.substringAfter(",")
+                    if (encodedContent.isNotEmpty()) {
+                        val decodedText = URLDecoder.decode(
+                            encodedContent,
+                            StandardCharsets.UTF_8.toString()
+                        )
+                        withContext(Dispatchers.Main) {
+                            onTranscriptionDownload.invoke(decodedText, "")
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            onTranscriptionDownload.invoke("", "Invalid base64 data")
+                        }
+                    }
+                } else {
+                    val client = httpClient
+                    val request = Request.Builder().url(url).build()
+                    try {
+                        val response = client.newCall(request).execute()
+                        val body = response.body?.string()
+                        withContext(Dispatchers.Main) {
+                            if (body.isNullOrEmpty()) {
+                                onTranscriptionDownload.invoke("", "Empty Response")
+                            } else {
+                                onTranscriptionDownload.invoke(body, "")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            onTranscriptionDownload.invoke("", "Error: ${e.localizedMessage}")
+                        }
+                    }
+                }
+            }
+        }
+
+        webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                if (view == null) return
+                CoroutineScope(Dispatchers.Main).launch {
+                    delay(1000)
+                    observeDownloadElementVisibility(view)
+                        .collect { isVisible ->
+                            if (isVisible) {
+                                view.evaluateJavascript(
+                                    "document.getElementById('download').click();"
+                                ) {
+                                    Toast.makeText(
+                                        view.context,
+                                        "Download started $it",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
+                }
+            }
+        }
     }
 }
 
 
 class TranscriptionViewModel(appDatabase: AppDatabase) : ViewModel() {
     private val youtubeVideoDao = appDatabase.youtubeVideoDao()
-    fun saveTranscription(youtubeUrl: String, transcription: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val youtubeId = extractVideoId(youtubeUrl)
-            if (youtubeId != null) {
-                val youTubeVideoEntity =
-                    youtubeVideoDao.getVideoById(youtubeId) ?: YouTubeVideoEntity(
-                        videoId = youtubeId,
-                        videoUrl = youtubeUrl,
-                        title = null,
-                        description = null,
-                        thumbnailUrl = null,
-                        transcription = null,
-                        aiDigest = null
-                    )
-                val updatedYouTubeVideoEntity = youTubeVideoEntity.copy(
-                    transcription = transcription
-                )
-                youtubeVideoDao.updateVideo(updatedYouTubeVideoEntity)
-            }
+
+    val transcriptText = MutableStateFlow("Transcript will appear here...")
+
+    @OptIn(ExperimentalUuidApi::class)
+    val refreshTranscript = MutableStateFlow<String>(Uuid.random().toString())
+
+    @OptIn(ExperimentalUuidApi::class)
+    fun getOrFetchTranscript(youTubeVideoEntity: YouTubeVideoEntity) {
+        val transcription = youTubeVideoEntity.transcription
+        if (transcription == null) {
+            refreshTranscript.update { Uuid.random().toString() }
+        } else {
+            transcriptText.update { transcription }
         }
     }
 
-    fun getTranscription(youtubeUrl: String): String? {
-        return runBlocking {
-            val youtubeId = extractVideoId(youtubeUrl) ?: return@runBlocking null
-            val youTubeVideoEntity =
-                youtubeVideoDao.getVideoById(youtubeId) ?: return@runBlocking null
-            youTubeVideoEntity.transcription
+    fun saveTranscription(
+        youTubeVideo: YouTubeVideoEntity,
+        transcription: String,
+        errorMessage: String
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (transcription.isNotEmpty()) {
+                val updatedYouTubeVideoEntity = youTubeVideo.copy(transcription = transcription)
+                youtubeVideoDao.updateVideo(updatedYouTubeVideoEntity)
+            }
+            transcriptText.update { transcription.ifEmpty { errorMessage.ifEmpty { "Something went wrong!" } } }
         }
     }
 }
 
 fun LazyListScope.TranscriptDownloaderContent(
-    youtubeUrl: String,
-    transcriptionViewModel: TranscriptionViewModel,
+    youTubeVideo: YouTubeVideoEntity,
+    onTranscriptionDownload: (transcript: String, errorMessage: String) -> Unit,
+    refreshTranscriptState: StateFlow<String>,
 ) {
 
     item {
-        var transcriptText by remember { mutableStateOf("Transcript will appear here...") }
+
+        val transcriptionRefresh by refreshTranscriptState.collectAsState()
+
         val context = LocalContext.current
 
-        val webView = remember {
-            WebView(context).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.userAgentString = settings.userAgentString + " AndroidApp"
-
-                settings.mediaPlaybackRequiresUserGesture = true
-
-                webChromeClient = object : WebChromeClient() {
-                    override fun onPermissionRequest(request: PermissionRequest) {
-                        // Block all permissions including camera
-                        request.deny()
-                    }
-                }
-
-                setDownloadListener { url, _, _, _, _ ->
-                    CoroutineScope(Dispatchers.IO).launch {
-                        if (url.startsWith("data:")) {
-                            val encodedContent = url.substringAfter(",")
-                            if (encodedContent.isNotEmpty()) {
-                                val decodedText = URLDecoder.decode(
-                                    encodedContent,
-                                    StandardCharsets.UTF_8.toString()
-                                )
-                                withContext(Dispatchers.Main) {
-                                    transcriptText = decodedText
-                                    transcriptionViewModel.saveTranscription(
-                                        youtubeUrl,
-                                        decodedText
-                                    )
-                                }
-                            } else {
-                                withContext(Dispatchers.Main) {
-                                    transcriptText = "Invalid base64 data"
-                                }
-                            }
-                        } else {
-                            // Use OkHttp for http/https
-                            val client = httpClient
-                            val request = Request.Builder().url(url).build()
-                            try {
-                                val response = client.newCall(request).execute()
-                                val body = response.body?.string()
-                                withContext(Dispatchers.Main) {
-                                    transcriptText = body ?: "Empty response"
-                                }
-                            } catch (e: Exception) {
-                                withContext(Dispatchers.Main) {
-                                    transcriptText = "Error: ${e.localizedMessage}"
-                                }
-                            }
-                        }
-                    }
-                }
-
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView?, url: String?) {
-                        super.onPageFinished(view, url)
-                        if (view == null) return
-                        CoroutineScope(Dispatchers.Main).launch {
-                            delay(1000)
-                            observeDownloadElementVisibility(view)
-                                .collect { isVisible ->
-                                    if (isVisible) {
-                                        view.evaluateJavascript(
-                                            "document.getElementById('download').click();"
-                                        ) {
-                                            Toast.makeText(
-                                                view.context,
-                                                "Download started $it",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
-                                }
-                        }
-                    }
-                }
-            }
+        val transcriptionWebView = remember {
+            createTranscriptionWebView(
+                context = context,
+                onTranscriptionDownload = onTranscriptionDownload
+            )
         }
 
-
-        LaunchedEffect(youtubeUrl) {
-            if (youtubeUrl.isNotEmpty()) {
-                launch(Dispatchers.IO) {
-                    val transcript = transcriptionViewModel.getTranscription(youtubeUrl)
-                    if (transcript != null) {
-                        transcriptText = transcript
-                        return@launch
-                    } else {
-                        withContext(Dispatchers.Main.immediate) {
-                            val tactiqUrl =
-                                "https://tactiq.io/tools/run/youtube_transcript?yt=$youtubeUrl"
-                            webView.loadUrl(tactiqUrl)
-                        }
-                    }
-                }
+        LaunchedEffect(transcriptionRefresh) {
+            if (youTubeVideo.transcription.isNullOrEmpty()) {
+                val tactiqUrl = "https://tactiq.io/tools/run/youtube_transcript?yt=${youTubeVideo.videoUrl}"
+                transcriptionWebView.loadUrl(tactiqUrl)
             }
         }
 
         var isExpanded by remember { mutableStateOf(false) }
-        val collapseModifier = Modifier.fillMaxWidth().height(55.dp)
-        val expandedModifier = Modifier.fillMaxWidth().height(500.dp)
 
-        Box(
+        val collapseModifier = Modifier
+            .fillMaxWidth()
+            .height(55.dp)
+
+        val expandedModifier = Modifier
+            .fillMaxWidth()
+            .height(500.dp)
+
+        Row(
             modifier = Modifier.then(
                 if (isExpanded) expandedModifier else collapseModifier
             )
         ) {
             AndroidView(
-                factory = { webView },
-                modifier = Modifier.fillMaxWidth().background(
-                    MaterialTheme.colorScheme.background
-                )
+                factory = { transcriptionWebView },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.background
+                    )
             )
             IconButton(onClick = {
                 isExpanded = !isExpanded
@@ -237,9 +308,11 @@ fun LazyListScope.TranscriptDownloaderContent(
         }
 
         Text(
-            text = transcriptText,
+            text = youTubeVideo.transcription ?: "Transcript will appear here...",
             style = MaterialTheme.typography.bodySmall
         )
+
+        Spacer(Modifier.size(200.dp))
     }
 }
 

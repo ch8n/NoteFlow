@@ -17,7 +17,19 @@ data class YouTubeVideoEntity(
     val thumbnailUrl: String?,
     val transcription: String?,
     val aiDigest: String?
-)
+) {
+    companion object {
+        val Empty = YouTubeVideoEntity(
+            videoId = "",
+            videoUrl = null,
+            title = null,
+            description = null,
+            thumbnailUrl = null,
+            transcription = null,
+            aiDigest = null
+        )
+    }
+}
 
 
 @Dao

@@ -32,7 +32,6 @@ fun SettingsScreen(
     modifier: Modifier,
     viewModel: SettingsViewModel
 ) {
-    val apiEndpoint by viewModel.apiEndpoint.collectAsState()
     val modelName by viewModel.modelName.collectAsState()
     val apiKey by viewModel.apiKey.collectAsState()
 
@@ -65,24 +64,14 @@ fun SettingsScreen(
 class SettingsViewModel(appContext: Context) : ViewModel() {
     companion object {
         private const val PREFS_NAME = "koog_settings"
-        private const val KEY_API_ENDPOINT = "api_endpoint"
         private const val KEY_MODEL_NAME = "model_name"
         private const val KEY_API_KEY = "api_key"
     }
 
     private val prefs = appContext.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
-    val apiEndpoint = MutableStateFlow(prefs.getString(KEY_API_ENDPOINT, "") ?: "")
     val modelName = MutableStateFlow(prefs.getString(KEY_MODEL_NAME, "") ?: "")
 
     val apiKey = MutableStateFlow(prefs.getString(KEY_API_KEY, "") ?: "")
-
-    fun updateApiEndpoint(routerEndPoint: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            apiEndpoint.update { routerEndPoint }
-            prefs.edit { putString(KEY_API_ENDPOINT, routerEndPoint) }
-        }
-    }
 
     fun updateModelName(modelName: String) {
         viewModelScope.launch(Dispatchers.IO) {
