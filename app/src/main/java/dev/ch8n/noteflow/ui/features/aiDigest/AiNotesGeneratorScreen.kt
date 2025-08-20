@@ -227,6 +227,7 @@ class AiNotesGeneratorViewModel(
             val updated = youTubeVideoEntity.copy(aiDigest = aiResponse)
             youTubeVideoDao.updateVideo(updated)
             withContext(Dispatchers.Main.immediate) {
+                MessageUtil.showToast("Saved!")
                 onAiNotesSaved.invoke()
             }
         }
