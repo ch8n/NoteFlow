@@ -175,7 +175,10 @@ fun VideoDetailContent(
 
         stickyHeader {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
@@ -198,6 +201,30 @@ fun VideoDetailContent(
             }
         }
 
+        stickyHeader {
+            Column (
+                modifier = Modifier.fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(vertical = 8.dp),
+            ) {
+                OutlinedButton(onClick = {
+                    isTranscriptionBottomSheetVisible = !isTranscriptionBottomSheetVisible
+                }) {
+                    val words = (youTubeVideo.transcription?:"")
+                        .split(" ")
+                        .count { it.isNotEmpty() }
+
+                    Text("Download Transcription ⤵️ | $words")
+                }
+
+                OutlinedButton(onClick = {
+                    isAiNotesBottomSheetVisible = !isAiNotesBottomSheetVisible
+                }) {
+                    Text("Generate AI Notes ✨")
+                }
+            }
+        }
+
         item {
             MarkdownText(
                 youTubeVideo.aiDigest
@@ -207,25 +234,6 @@ fun VideoDetailContent(
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 100.dp),
             )
-        }
-
-        stickyHeader {
-
-            OutlinedButton(onClick = {
-                isTranscriptionBottomSheetVisible = !isTranscriptionBottomSheetVisible
-            }) {
-                val words = (youTubeVideo.transcription?:"")
-                    .split(" ")
-                    .count { it.isNotEmpty() }
-
-                Text("Download Transcription ⤵️ | $words")
-            }
-
-            OutlinedButton(onClick = {
-                isAiNotesBottomSheetVisible = !isAiNotesBottomSheetVisible
-            }) {
-                Text("Generate AI Notes ✨")
-            }
         }
     }
 
