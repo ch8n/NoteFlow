@@ -237,20 +237,29 @@ class AiNotesGeneratorViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             val lastDate = prefs.getString("last_date", null)
-            prefs.edit {
-                // Reset if date changed
-                if (lastDate != today) {
-                    putString("last_date", today)
-                    putInt("counter", 0)
-                }
-                // Increment counter
-                val currentCount = prefs.getInt("counter", 0)
-                val newCount = (currentCount + 1).coerceAtMost(50)
-                putInt("counter", newCount)
+
+            val editor = prefs.edit()
+
+            // Reset counter if date has changed
+            if (lastDate != today) {
+                editor.putString("last_date", today)
+                editor.putInt("counter", 0)
             }
 
+            // Get current count after reset (or not)
+            var currentCount = prefs.getInt("counter", 0)
+            val newCount = (currentCount + 1).coerceAtMost(50)
+
+            // Update the counter
+            editor.putInt("counter", newCount)
+
+            // Commit synchronously to ensure values are saved before reading
+            editor.commit()
+
+            // Now it's safe to read the updated value
             val updatedCount = prefs.getInt("counter", 0)
             aiLimitCount.update { updatedCount }
         }
     }
+
 }
