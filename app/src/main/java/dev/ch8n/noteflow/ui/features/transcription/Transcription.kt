@@ -9,14 +9,19 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -37,6 +42,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -70,9 +76,10 @@ fun TranscriptionScreen(
     transcriptionViewModel: TranscriptionViewModel
 ) {
     LazyColumn(
-        modifier = modifier.background(
-            MaterialTheme.colorScheme.background
-        )
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         TranscriptDownloaderContent(
             youTubeVideo = youTubeVideo,
@@ -86,7 +93,7 @@ fun TranscriptionScreen(
             OutlinedButton(onClick = {
                 transcriptionViewModel.getOrFetchTranscript(youTubeVideo)
             }) {
-                Text("Download Transcription")
+                Text("Download Transcription ⤵️")
             }
         }
     }
@@ -114,6 +121,10 @@ fun TranscriptionModelBottomSheet(
                 sheetState.hide()
             }
         }
+    }
+
+    BackHandler {
+        setBottomSheetVisibility.invoke(false)
     }
 
     ModalBottomSheet(
@@ -269,7 +280,8 @@ fun LazyListScope.TranscriptDownloaderContent(
 
         LaunchedEffect(transcriptionRefresh) {
             if (youTubeVideo.transcription.isNullOrEmpty()) {
-                val tactiqUrl = "https://tactiq.io/tools/run/youtube_transcript?yt=${youTubeVideo.videoUrl}"
+                val tactiqUrl =
+                    "https://tactiq.io/tools/run/youtube_transcript?yt=${youTubeVideo.videoUrl}"
                 transcriptionWebView.loadUrl(tactiqUrl)
             }
         }
@@ -282,7 +294,7 @@ fun LazyListScope.TranscriptDownloaderContent(
 
         val expandedModifier = Modifier
             .fillMaxWidth()
-            .height(500.dp)
+            .height(200.dp)
 
         Row(
             modifier = Modifier.then(
@@ -309,10 +321,14 @@ fun LazyListScope.TranscriptDownloaderContent(
 
         Text(
             text = youTubeVideo.transcription ?: "Transcript will appear here...",
-            style = MaterialTheme.typography.bodySmall
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 500.dp)
+                .verticalScroll(rememberScrollState())
         )
 
-        Spacer(Modifier.size(200.dp))
+        Spacer(Modifier.size(100.dp))
     }
 }
 

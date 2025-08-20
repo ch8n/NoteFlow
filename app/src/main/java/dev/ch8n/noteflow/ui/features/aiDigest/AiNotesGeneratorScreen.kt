@@ -3,11 +3,17 @@ package dev.ch8n.noteflow.ui.features.aiDigest
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -69,6 +75,10 @@ fun AiDigestModelBottomSheet(
         }
     }
 
+    BackHandler {
+        setBottomSheetVisibility.invoke(false)
+    }
+
     ModalBottomSheet(
         onDismissRequest = {
             setBottomSheetVisibility.invoke(false)
@@ -120,16 +130,22 @@ fun AiNoteGeneratorScreen(
         }
 
         item {
-            MarkdownText(
-                aiResponse.ifEmpty {
-                    youTubeVideo.aiDigest
-                        ?.ifEmpty { "### No AI Digest, Click Generate" }
-                        ?: "### No AI Digest, Click Generate"
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 100.dp),
-            )
+            Column(Modifier
+                .fillMaxWidth()
+                .heightIn(max = 500.dp)
+                .verticalScroll(rememberScrollState())
+            ) {
+                MarkdownText(
+                    aiResponse.ifEmpty {
+                        youTubeVideo.aiDigest
+                            ?.ifEmpty { "### No AI Digest, Click Generate" }
+                            ?: "### No AI Digest, Click Generate"
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 100.dp),
+                )
+            }
         }
 
         stickyHeader {

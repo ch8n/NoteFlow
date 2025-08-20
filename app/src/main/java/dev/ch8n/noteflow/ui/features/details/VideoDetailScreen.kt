@@ -1,6 +1,7 @@
 package dev.ch8n.noteflow.ui.features.details
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -30,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -48,6 +54,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.text.ifEmpty
 
 
@@ -76,6 +83,12 @@ fun VideoDetailScreen(
         VideoDetailContent(
             modifier = modifier,
             youTubeVideo = requireNotNull(youTubeVideo),
+            onDeleteYoutubeVideo = { video ->
+                viewModel.deleteYoutubeVideo(
+                    youTubeVideo = video,
+                    onDeleted = onBack
+                )
+            },
             transcriptionViewModel = transcriptionViewModel,
             aiNotesGeneratorViewModel = aiNotesGeneratorViewModel
         )
@@ -94,8 +107,9 @@ fun VideoDetailScreen(
 fun VideoDetailContent(
     modifier: Modifier = Modifier,
     youTubeVideo: YouTubeVideoEntity,
+    onDeleteYoutubeVideo: (youTubeVideo: YouTubeVideoEntity) -> Unit,
     transcriptionViewModel: TranscriptionViewModel,
-    aiNotesGeneratorViewModel: AiNotesGeneratorViewModel
+    aiNotesGeneratorViewModel: AiNotesGeneratorViewModel,
 ) {
 
     var isTranscriptionBottomSheetVisible by remember { mutableStateOf(false) }
@@ -110,25 +124,29 @@ fun VideoDetailContent(
     ) {
 
         item {
-            Row(
+            Column(
                 modifier = Modifier
                     .padding(16.dp)
                     .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
             ) {
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(100.dp)
                         .aspectRatio(16 / 9f)
                 ) {
-                    if (youTubeVideo?.thumbnailUrl != null) {
+                    IconButton(onClick = {
+                        onDeleteYoutubeVideo(youTubeVideo)
+                    }) {
+                        Icon(Icons.Default.Delete, contentDescription = "delete")
+                    }
+
+                    if (!youTubeVideo.thumbnailUrl.isNullOrEmpty()) {
                         AsyncImage(
                             model = youTubeVideo.thumbnailUrl,
                             contentDescription = "Thumbnail",
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
                         )
                     } else {
                         Box(
@@ -138,29 +156,34 @@ fun VideoDetailContent(
                         )
                     }
                 }
-
-
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = youTubeVideo?.title ?: "No title",
-                        style = MaterialTheme.typography.headlineSmall
-                    )
-
-                    Text(
-                        text = youTubeVideo?.description ?: "No description",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-
-                    Spacer(Modifier.size(8.dp))
-                }
             }
 
             HorizontalDivider()
+        }
+
+        stickyHeader {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = youTubeVideo.title ?: "No title",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            }
+        }
+
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = youTubeVideo.description ?: "No description",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                HorizontalDivider()
+            }
         }
 
         item {
@@ -170,7 +193,7 @@ fun VideoDetailContent(
                     ?: "### No AI Digest, Click Generate",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 100.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 100.dp),
             )
         }
 
@@ -189,19 +212,23 @@ fun VideoDetailContent(
         }
     }
 
-    TranscriptionModelBottomSheet(
-        isBottomSheetVisible = isTranscriptionBottomSheetVisible,
-        setBottomSheetVisibility = { isTranscriptionBottomSheetVisible = it },
-        youTubeVideo = youTubeVideo,
-        transcriptionViewModel = transcriptionViewModel
-    )
+    if (isTranscriptionBottomSheetVisible) {
+        TranscriptionModelBottomSheet(
+            isBottomSheetVisible = isTranscriptionBottomSheetVisible,
+            setBottomSheetVisibility = { isTranscriptionBottomSheetVisible = it },
+            youTubeVideo = youTubeVideo,
+            transcriptionViewModel = transcriptionViewModel
+        )
+    }
 
-    AiDigestModelBottomSheet(
-        isBottomSheetVisible = isAiNotesBottomSheetVisible,
-        setBottomSheetVisibility = { isAiNotesBottomSheetVisible = it },
-        youTubeVideo = youTubeVideo,
-        aiNotesGeneratorViewModel = aiNotesGeneratorViewModel
-    )
+    if (isAiNotesBottomSheetVisible) {
+        AiDigestModelBottomSheet(
+            isBottomSheetVisible = isAiNotesBottomSheetVisible,
+            setBottomSheetVisibility = { isAiNotesBottomSheetVisible = it },
+            youTubeVideo = youTubeVideo,
+            aiNotesGeneratorViewModel = aiNotesGeneratorViewModel
+        )
+    }
 }
 
 class HomeScreenViewModel(appDatabase: AppDatabase) : ViewModel() {
@@ -221,6 +248,15 @@ class HomeScreenViewModel(appDatabase: AppDatabase) : ViewModel() {
                 youTubeVideoDao.updateVideo(videoEntity)
             }
             youtubeVideoEntityData.update { videoEntity }
+        }
+    }
+
+    fun deleteYoutubeVideo(youTubeVideo: YouTubeVideoEntity, onDeleted: () -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            youTubeVideoDao.deleteVideo(youTubeVideo)
+            withContext(Dispatchers.Main.immediate) {
+                onDeleted.invoke()
+            }
         }
     }
 }
