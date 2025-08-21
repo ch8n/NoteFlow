@@ -16,7 +16,8 @@ data class YouTubeVideoEntity(
     val description: String?,
     val thumbnailUrl: String?,
     val transcription: String?,
-    val aiDigest: String?
+    val aiDigest: String?,
+    val createdAt: Long?
 ) {
     companion object {
         val Empty = YouTubeVideoEntity(
@@ -26,7 +27,8 @@ data class YouTubeVideoEntity(
             description = null,
             thumbnailUrl = null,
             transcription = null,
-            aiDigest = null
+            aiDigest = null,
+            createdAt = null
         )
     }
 }
@@ -44,11 +46,11 @@ interface YouTubeVideoDao {
     @Query("SELECT * FROM youtube_videos WHERE videoId = :id")
     suspend fun getVideoById(id: String): YouTubeVideoEntity?
 
-    @Query("SELECT * FROM youtube_videos ORDER BY title ASC")
-    suspend fun getAllVideos(): List<YouTubeVideoEntity>
+    @Query("SELECT * FROM youtube_videos ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
+    suspend fun getVideosPaginated(limit: Int, offset: Int): List<YouTubeVideoEntity>
 
-    @Query("SELECT * FROM youtube_videos WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' ORDER BY title ASC")
-    suspend fun getAllVideosByQuery(query: String): List<YouTubeVideoEntity>
+    @Query("SELECT * FROM youtube_videos WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
+    suspend fun getVideosByQueryPaginated(query: String, limit: Int, offset: Int): List<YouTubeVideoEntity>
 
     @Upsert
     suspend fun updateVideo(video: YouTubeVideoEntity)

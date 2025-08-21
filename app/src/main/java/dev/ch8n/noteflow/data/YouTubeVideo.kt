@@ -25,7 +25,8 @@ suspend fun fetchYouTubeVideoData(url: String): YouTubeVideoEntity? = withContex
         description = description,
         thumbnailUrl = thumbnailUrl,
         transcription = null,
-        aiDigest = null
+        aiDigest = null,
+        createdAt = System.currentTimeMillis()
     )
 }
 

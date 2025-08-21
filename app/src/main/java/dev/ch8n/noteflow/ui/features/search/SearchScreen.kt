@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,19 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import dev.ch8n.noteflow.data.AppDatabase
 import dev.ch8n.noteflow.data.YouTubeVideoEntity
 import dev.ch8n.noteflow.ui.features.details.YouTubeVideoDetail
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 
 @Composable
@@ -55,7 +45,13 @@ fun YoutubeSearchScreen(
         searchQuery = searchQuery,
         updateQuery = youtubeVideoListViewModel::updateQuery,
         onVideoDetailsClicked = navigateToVideDetails,
-        onSettingsClicked = navigateToSettings
+        onSettingsClicked = navigateToSettings,
+        onLoadMore = {
+            with(youtubeVideoListViewModel) {
+                incrementIndex()
+                loadNextVideo()
+            }
+        }
     )
 }
 
@@ -67,9 +63,13 @@ fun YouTubeVideoListContent(
     updateQuery: (query: String) -> Unit = {},
     videos: List<YouTubeVideoEntity>,
     onVideoDetailsClicked: (video: YouTubeVideoEntity) -> Unit = {},
-    onSettingsClicked: () -> Unit = {}
+    onSettingsClicked: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
 ) {
-    LazyColumn(modifier = modifier) {
+    LazyColumn(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         stickyHeader {
             Surface(
                 tonalElevation = 4.dp,
@@ -120,6 +120,14 @@ fun YouTubeVideoListContent(
                     onVideoDetailsClicked.invoke(video)
                 }
             )
+        }
+
+        item {
+            OutlinedButton(onClick = {
+                onLoadMore.invoke()
+            }) {
+                Text("Load More")
+            }
         }
     }
 }

@@ -9,42 +9,56 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 
 class YouTubeVideoListViewModel(appDatabase: AppDatabase) : ViewModel() {
+
+    companion object {
+        private const val PAGE_SIZE = 10
+    }
+
     private val youtubeVideoDao = appDatabase.youtubeVideoDao()
     val videoList = MutableStateFlow<List<YouTubeVideoEntity>>(emptyList())
-    private val _searchQuery = MutableStateFlow<String>("")
+    val searchQuery = MutableStateFlow<String>("")
 
-    @OptIn(FlowPreview::class)
-    val searchQuery = _searchQuery
-        .debounce(500)
-        .distinctUntilChanged()
-        .onEach { query ->
-            if (query.isBlank()) {
-                loadVideos()
-            } else {
-                filterVideos(query)
+    init {
+        searchQuery.debounce(500)
+            .distinctUntilChanged()
+            .onEach { query ->
+                resetIndex()
+                loadNextVideo()
             }
-        }
+            .launchIn(viewModelScope)
+    }
+
+    private val pageIndex = MutableStateFlow<Int>(0)
+
 
     fun updateQuery(query: String) {
-        _searchQuery.update { query }
+        searchQuery.update { query }
     }
 
-    private fun loadVideos() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val videos = youtubeVideoDao.getAllVideos()
-            videoList.update { videos }
-        }
+    fun resetIndex() {
+        pageIndex.update { 0 }
     }
 
-    private fun filterVideos(query: String) {
+    fun incrementIndex() {
+        pageIndex.update { it + 1 }
+    }
+
+    fun loadNextVideo() {
         viewModelScope.launch(Dispatchers.IO) {
-            val videos = youtubeVideoDao.getAllVideosByQuery(query)
+            val offset = (pageIndex.value + 1) * PAGE_SIZE
+            val query = searchQuery.value
+            val videos = if (query.isNotEmpty()) {
+                youtubeVideoDao.getVideosByQueryPaginated(query, PAGE_SIZE, offset)
+            } else {
+                youtubeVideoDao.getVideosPaginated(PAGE_SIZE, offset)
+            }
             videoList.update { videos }
         }
     }
