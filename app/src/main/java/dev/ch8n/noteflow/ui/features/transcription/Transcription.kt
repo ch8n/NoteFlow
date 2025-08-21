@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.ch8n.noteflow.MessageUtil
 import dev.ch8n.noteflow.data.AppDatabase
 import dev.ch8n.noteflow.data.YouTubeVideoEntity
 import dev.ch8n.noteflow.data.httpClient
@@ -170,10 +171,12 @@ fun createTranscriptionWebView(
                             StandardCharsets.UTF_8.toString()
                         )
                         withContext(Dispatchers.Main) {
+                            MessageUtil.showToast("Download Complete!")
                             onTranscriptionDownload.invoke(decodedText, "")
                         }
                     } else {
                         withContext(Dispatchers.Main) {
+                            MessageUtil.showToast("Download Error!")
                             onTranscriptionDownload.invoke("", "Invalid base64 data")
                         }
                     }
@@ -185,8 +188,10 @@ fun createTranscriptionWebView(
                         val body = response.body?.string()
                         withContext(Dispatchers.Main) {
                             if (body.isNullOrEmpty()) {
+                                MessageUtil.showToast("Download Error!")
                                 onTranscriptionDownload.invoke("", "Empty Response")
                             } else {
+                                MessageUtil.showToast("Download Complete!")
                                 onTranscriptionDownload.invoke(body, "")
                             }
                         }
@@ -213,7 +218,7 @@ fun createTranscriptionWebView(
                                 ) {
                                     Toast.makeText(
                                         view.context,
-                                        "Download started",
+                                        "Loading started",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -253,6 +258,7 @@ class TranscriptionViewModel(appDatabase: AppDatabase) : ViewModel() {
             if (transcription.isNotEmpty()) {
                 val updatedYouTubeVideoEntity = youTubeVideo.copy(transcription = transcription)
                 youtubeVideoDao.updateVideo(updatedYouTubeVideoEntity)
+                MessageUtil.showToast("Transcription saved!")
             }
             transcriptText.update { transcription.ifEmpty { errorMessage.ifEmpty { "Something went wrong!" } } }
         }

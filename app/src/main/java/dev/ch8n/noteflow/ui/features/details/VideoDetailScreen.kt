@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +52,7 @@ import dev.ch8n.noteflow.ui.features.aiDigest.AiDigestModelBottomSheet
 import dev.ch8n.noteflow.ui.features.aiDigest.AiNotesGeneratorViewModel
 import dev.ch8n.noteflow.ui.features.transcription.TranscriptionModelBottomSheet
 import dev.ch8n.noteflow.ui.features.transcription.TranscriptionViewModel
+import dev.ch8n.noteflow.ui.wordCount
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -211,10 +214,7 @@ fun VideoDetailContent(
                 OutlinedButton(onClick = {
                     isTranscriptionBottomSheetVisible = !isTranscriptionBottomSheetVisible
                 }) {
-                    val words = (youTubeVideo.transcription ?: "")
-                        .split(" ")
-                        .count { it.isNotEmpty() }
-
+                    val words = youTubeVideo.transcription.wordCount()
                     Text("Download Transcription ⤵️ | $words")
                 }
 
@@ -299,21 +299,20 @@ fun LazyListScope.YouTubeVideoDetail(
 ) {
 
     item {
-        Column(
+        Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(horizontal = 16.dp)
                 .fillMaxWidth()
                 .clickable {
                     video ?: return@clickable
                     onVideClicked.invoke(video)
                 },
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
 
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
+                    .size(110.dp)
                     .aspectRatio(16 / 9f)
             ) {
                 if (video?.thumbnailUrl != null) {
@@ -322,7 +321,8 @@ fun LazyListScope.YouTubeVideoDetail(
                         contentDescription = "Thumbnail",
                         modifier = Modifier
                             .fillMaxSize()
-                        //.aspectRatio(16 / 9f)
+                            .aspectRatio(16 / 9f),
+                        contentScale = ContentScale.Crop
                     )
                 } else {
                     Box(
@@ -333,28 +333,36 @@ fun LazyListScope.YouTubeVideoDetail(
                 }
             }
 
-
             Column(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(16.dp)
             ) {
                 Text(
                     text = video?.title ?: "No title",
-                    style = MaterialTheme.typography.headlineSmall
-                )
+                    style = MaterialTheme.typography.bodyLarge,
 
-                Text(
-                    text = video?.description ?: "No description",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                    )
 
-                Spacer(Modifier.size(8.dp))
+                Row (
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = true,
+                        onClick = { },
+                        label = { Text("⤵️ ${video?.transcription.wordCount()}") }
+                    )
 
-                HorizontalDivider()
+                    FilterChip(
+                        selected = true,
+                        onClick = { },
+                        label = { Text("✨ ${video?.aiDigest.wordCount()}") }
+                    )
+                }
             }
+
         }
+        HorizontalDivider()
     }
 }
 
