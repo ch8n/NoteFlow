@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 
+@OptIn(FlowPreview::class)
 class YouTubeVideoListViewModel(appDatabase: AppDatabase) : ViewModel() {
 
     companion object {
@@ -24,8 +25,12 @@ class YouTubeVideoListViewModel(appDatabase: AppDatabase) : ViewModel() {
     private val youtubeVideoDao = appDatabase.youtubeVideoDao()
     val videoList = MutableStateFlow<List<YouTubeVideoEntity>>(emptyList())
     val searchQuery = MutableStateFlow<String>("")
+    private val pageIndex = MutableStateFlow<Int>(0)
 
     init {
+        // Load initial data
+        loadNextVideo()
+
         searchQuery.debounce(500)
             .distinctUntilChanged()
             .onEach { query ->
@@ -34,9 +39,6 @@ class YouTubeVideoListViewModel(appDatabase: AppDatabase) : ViewModel() {
             }
             .launchIn(viewModelScope)
     }
-
-    private val pageIndex = MutableStateFlow<Int>(0)
-
 
     fun updateQuery(query: String) {
         searchQuery.update { query }
@@ -51,15 +53,32 @@ class YouTubeVideoListViewModel(appDatabase: AppDatabase) : ViewModel() {
     }
 
     fun loadNextVideo() {
+        // Early return if already loading or no more data
+
         viewModelScope.launch(Dispatchers.IO) {
-            val offset = (pageIndex.value + 1) * PAGE_SIZE
+
+            val currentPageIndex = pageIndex.value
+            val offset = currentPageIndex * PAGE_SIZE
             val query = searchQuery.value
-            val videos = if (query.isNotEmpty()) {
+
+            val newVideos = if (query.isNotEmpty()) {
                 youtubeVideoDao.getVideosByQueryPaginated(query, PAGE_SIZE, offset)
             } else {
                 youtubeVideoDao.getVideosPaginated(PAGE_SIZE, offset)
             }
-            videoList.update { videos }
+
+            if (currentPageIndex == 0) {
+                // First page - replace existing list
+                videoList.update { newVideos }
+            } else {
+                // Subsequent pages - append to existing list
+                videoList.update { currentList -> currentList + newVideos }
+            }
+
+            // Update pagination state
+            if (newVideos.isNotEmpty()) {
+                incrementIndex()
+            }
         }
     }
 
