@@ -115,6 +115,11 @@ fun AiNoteGeneratorScreen(
     val aiResponse by aiNotesGeneratorViewModel.aiResponse.collectAsState()
     val aiLimitCount by aiNotesGeneratorViewModel.aiLimitCount.collectAsState()
 
+    // Initialize the daily limit counter when the screen is first composed
+    LaunchedEffect(Unit) {
+        aiNotesGeneratorViewModel.initializeDailyLimit(prefs)
+    }
+
     LazyColumn(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -190,6 +195,27 @@ class AiNotesGeneratorViewModel(
     val aiResponse = MutableStateFlow("")
     val aiLimitCount = MutableStateFlow(0)
 
+    fun initializeDailyLimit(prefs: SharedPreferences) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            val lastDate = prefs.getString("last_date", null)
+
+            // Reset counter if date has changed
+            if (lastDate != today) {
+                prefs.edit().apply {
+                    putString("last_date", today)
+                    putInt("counter", 0)
+                    apply()
+                }
+                aiLimitCount.update { 0 }
+            } else {
+                // Load existing count for today
+                val currentCount = prefs.getInt("counter", 0)
+                aiLimitCount.update { currentCount }
+            }
+        }
+    }
+
     fun generateAiNotes(
         prompt: String,
         youTubeVideoEntity: YouTubeVideoEntity,
@@ -240,27 +266,29 @@ class AiNotesGeneratorViewModel(
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             val lastDate = prefs.getString("last_date", null)
 
-            val editor = prefs.edit()
-
             // Reset counter if date has changed
             if (lastDate != today) {
-                editor.putString("last_date", today)
-                editor.putInt("counter", 0)
+                prefs.edit().apply {
+                    putString("last_date", today)
+                    putInt("counter", 0)
+                    apply()
+                }
+                // Update StateFlow to reflect the reset
+                aiLimitCount.update { 0 }
             }
 
-            // Get current count after reset (or not)
-            var currentCount = prefs.getInt("counter", 0)
+            // Get current count and increment
+            val currentCount = prefs.getInt("counter", 0)
             val newCount = (currentCount + 1).coerceAtMost(50)
 
-            // Update the counter
-            editor.putInt("counter", newCount)
+            // Update the counter in SharedPreferences
+            prefs.edit().apply {
+                putInt("counter", newCount)
+                apply()
+            }
 
-            // Commit synchronously to ensure values are saved before reading
-            editor.commit()
-
-            // Now it's safe to read the updated value
-            val updatedCount = prefs.getInt("counter", 0)
-            aiLimitCount.update { updatedCount }
+            // Update StateFlow with the new count
+            aiLimitCount.update { newCount }
         }
     }
 
