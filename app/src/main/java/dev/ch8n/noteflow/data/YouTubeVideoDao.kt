@@ -1,11 +1,18 @@
 package dev.ch8n.noteflow.data
 
 import android.content.Context
-import androidx.room.*
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.paging.PagingSource
+import androidx.room.Dao
 import androidx.room.Database
+import androidx.room.Delete
+import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Upsert
 
 
 @Entity(tableName = "youtube_videos")
@@ -46,11 +53,12 @@ interface YouTubeVideoDao {
     @Query("SELECT * FROM youtube_videos WHERE videoId = :id")
     suspend fun getVideoById(id: String): YouTubeVideoEntity?
 
-    @Query("SELECT * FROM youtube_videos ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
-    suspend fun getVideosPaginated(limit: Int, offset: Int): List<YouTubeVideoEntity>
+    // Paging 3 methods
+    @Query("SELECT * FROM youtube_videos ORDER BY createdAt DESC")
+    fun getVideosPagingSource(): PagingSource<Int, YouTubeVideoEntity>
 
-    @Query("SELECT * FROM youtube_videos WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
-    suspend fun getVideosByQueryPaginated(query: String, limit: Int, offset: Int): List<YouTubeVideoEntity>
+    @Query("SELECT * FROM youtube_videos WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' OR transcription LIKE '%' || :query || '%' OR aiDigest LIKE '%' || :query || '%' ORDER BY createdAt DESC")
+    fun getVideosByQueryPagingSource(query: String): PagingSource<Int, YouTubeVideoEntity>
 
     @Upsert
     suspend fun updateVideo(video: YouTubeVideoEntity)
@@ -60,10 +68,16 @@ interface YouTubeVideoDao {
 
     @Query("DELETE FROM youtube_videos")
     suspend fun deleteAll()
+
+    @Query("SELECT COUNT(*) FROM youtube_videos")
+    suspend fun getVideosCount(): Int
+
+    @Query("SELECT COUNT(*) FROM youtube_videos WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' OR transcription LIKE '%' || :query || '%' OR aiDigest LIKE '%' || :query || '%'")
+    suspend fun getVideosByQueryCount(query: String): Int
 }
 
 
-@Database(entities = [YouTubeVideoEntity::class], version = 1)
+@Database(entities = [YouTubeVideoEntity::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun youtubeVideoDao(): YouTubeVideoDao
 }
