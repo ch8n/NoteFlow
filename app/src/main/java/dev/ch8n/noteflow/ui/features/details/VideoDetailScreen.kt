@@ -118,7 +118,6 @@ fun VideoDetailContent(
 
     var isTranscriptionBottomSheetVisible by remember { mutableStateOf(false) }
     var isAiNotesBottomSheetVisible by remember { mutableStateOf(false) }
-    var hackUpdatedAiNotes by remember { mutableStateOf("") }
 
     LazyColumn(
         modifier = modifier
@@ -244,11 +243,9 @@ fun VideoDetailContent(
 
         item {
             MarkdownText(
-                hackUpdatedAiNotes.ifEmpty {
-                    youTubeVideo.aiDigest
-                        ?.ifEmpty { "### No AI Digest, Click Generate" }
-                        ?: "### No AI Digest, Click Generate"
-                },
+                youTubeVideo.aiDigest
+                    ?.ifEmpty { "### No AI Digest, Click Generate" }
+                    ?: "### No AI Digest, Click Generate",
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 100.dp),
@@ -271,8 +268,8 @@ fun VideoDetailContent(
             setBottomSheetVisibility = { isAiNotesBottomSheetVisible = it },
             youTubeVideo = youTubeVideo,
             aiNotesGeneratorViewModel = aiNotesGeneratorViewModel,
-            onAiNotesSaved = { notes ->
-                hackUpdatedAiNotes = notes
+            onAiNotesSaved = { _ ->
+                // No need for hackUpdatedAiNotes since Flow observation handles updates automatically
             }
         )
     }
@@ -288,13 +285,24 @@ class HomeScreenViewModel(appDatabase: AppDatabase) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val videoId = extractVideoId(youtubeUrl)
                 ?: return@launch MessageUtil.showToast("Video id null from $youtubeUrl")
+
             var videoEntity = youTubeVideoDao.getVideoById(videoId)
             if (videoEntity == null) {
                 videoEntity = fetchYouTubeVideoData(youtubeUrl)
                     ?: return@launch MessageUtil.showToast("No Remote video found")
                 youTubeVideoDao.updateVideo(videoEntity)
             }
-            youtubeVideoEntityData.update { videoEntity }
+            
+            // Start observing the video for real-time updates
+            observeVideoUpdates(videoId)
+        }
+    }
+
+    private fun observeVideoUpdates(videoId: String) {
+        viewModelScope.launch {
+            youTubeVideoDao.getVideoByIdFlow(videoId).collect { videoEntity ->
+                youtubeVideoEntityData.update { videoEntity }
+            }
         }
     }
 

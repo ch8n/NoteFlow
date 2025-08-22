@@ -53,6 +53,9 @@ interface YouTubeVideoDao {
     @Query("SELECT * FROM youtube_videos WHERE videoId = :id")
     suspend fun getVideoById(id: String): YouTubeVideoEntity?
 
+    @Query("SELECT * FROM youtube_videos WHERE videoId = :id")
+    fun getVideoByIdFlow(id: String): kotlinx.coroutines.flow.Flow<YouTubeVideoEntity?>
+
     // Paging 3 methods
     @Query("SELECT * FROM youtube_videos ORDER BY createdAt DESC")
     fun getVideosPagingSource(): PagingSource<Int, YouTubeVideoEntity>
