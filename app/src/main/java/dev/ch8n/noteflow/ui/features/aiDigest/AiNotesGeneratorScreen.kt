@@ -160,10 +160,10 @@ fun AiNoteGeneratorScreen(
                     onClick = {
                         aiNotesGeneratorViewModel.generateAiNotes(
                             prompt = """
-                                # YouTube Transcription Analyzer v2.0 in English
+                                You are helpful assistant, Please analyse the transcription while following the output structure :
 
                                 ## ANALYSIS INSTRUCTIONS:
-                                1. **Content Assessment**: First evaluate transcription quality (1-10) and video type
+                                1. **Content Assessment**: First evaluate transcription quality (1-5) and video type
                                 2. **Content Filtering**: Ignore filler words, repetitions, and off-topic tangents
                                 3. **Accuracy Priority**: Only include information explicitly mentioned in transcription
 
@@ -173,10 +173,9 @@ fun AiNoteGeneratorScreen(
                                 - **Video Type**: [Tutorial/Interview/Review/Lecture/Discussion]
                                 - **Target Audience**: [Beginner/Intermediate/Expert] 
                                 - **Content Quality**: [Transcription quality score 1-5]
-                                - **Duration Estimate**: [Based on content depth]
-
+                                
                                 ### 2. 📝 **TLDR** 
-                                Create a compelling summary that answers: "Why should someone care about this content?"
+                                [TLDR]
 
                                 ### 3. 🔗 **Resources & References** 
                                 **Format each as:**
@@ -235,16 +234,13 @@ fun AiNoteGeneratorScreen(
                                 **Related Topics**: What to learn next
                                 ```
 
-                                ## 🛡️ **ERROR HANDLING:**
-                                - If transcription is <200 words: Note "Limited content available"
-                                - If highly technical: Include "Requires domain expertise" warning  
+                                ## 🛡️ **ERROR HANDLING:**  
                                 - If promotional content: Separate facts from marketing claims
                                 - If multiple topics: Create subsections for each major theme
 
                                 ## 🎯 **QUALITY BENCHMARKS:**
-                                - Every claim must be traceable to transcription
+                                - Every claim must be traceable to transcription (timestamp if present)
                                 - No assumptions beyond what's explicitly stated
-                                - Professional tone throughout
                                 - Consistent formatting
                                 - Logical flow between sections
 
