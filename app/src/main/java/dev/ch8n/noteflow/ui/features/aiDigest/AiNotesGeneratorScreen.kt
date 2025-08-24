@@ -114,6 +114,7 @@ fun AiNoteGeneratorScreen(
     }
     val aiResponse by aiNotesGeneratorViewModel.aiResponse.collectAsState()
     val aiLimitCount by aiNotesGeneratorViewModel.aiLimitCount.collectAsState()
+    val agentPrompt by aiNotesGeneratorViewModel.agentPrompt.collectAsState()
 
     // Initialize the daily limit counter when the screen is first composed
     LaunchedEffect(Unit) {
@@ -159,97 +160,7 @@ fun AiNoteGeneratorScreen(
                 OutlinedButton(
                     onClick = {
                         aiNotesGeneratorViewModel.generateAiNotes(
-                            prompt = """
-                                You are helpful assistant, Please analyse the transcription while following the output structure :
-
-                                ## ANALYSIS INSTRUCTIONS:
-                                1. **Content Assessment**: First evaluate transcription quality (1-5) and video type
-                                2. **Content Filtering**: Ignore filler words, repetitions, and off-topic tangents
-                                3. **Accuracy Priority**: Only include information explicitly mentioned in transcription
-
-                                ## OUTPUT REQUIREMENTS:
-
-                                ### 1. 📊 **Content Overview** (NEW SECTION)
-                                - **Video Type**: [Tutorial/Interview/Review/Lecture/Discussion]
-                                - **Target Audience**: [Beginner/Intermediate/Expert] 
-                                - **Content Quality**: [Transcription quality score 1-5]
-                                
-                                ### 2. 📝 **TLDR** 
-                                [TLDR]
-
-                                ### 3. 🔗 **Resources & References** 
-                                **Format each as:**
-                                - **[Category]**: Name/Title → Purpose/Context
-
-                                **Categories:**
-                                - 🌐 Websites & Links
-                                - 🛠️ Tools & Software  
-                                - 📚 Books & Publications
-                                - 🎯 Techniques & Methods
-                                - 👥 People & Experts
-                                - 🏢 Companies & Organizations
-
-                                ### 4. 💡 **Key Insights**
-                                Prioritize:
-                                - Actionable advice
-                                - Counterintuitive findings  
-                                - Expert opinions
-                                - Data/statistics mentioned
-                                - Problem-solution pairs
-
-                                ### 5. 🏷️ **Strategic Tagging**
-
-                                **Content Classification:**
-                                - Primary Category: [Single main topic]
-                                - Secondary Categories: [2-3 related areas]
-                                - Content Format: [How-to/Analysis/Opinion/News/Case Study]
-
-                                **SEO Tags (12-15 tags):**
-                                - High-volume keywords (3-4)
-                                - Long-tail keywords (4-6)  
-                                - Niche-specific terms (4-5)
-
-                                ### 6. 📚 **Learning Article** (800-1200 words)
-
-                                **Structure:**
-                                ```
-                                **[Compelling Title with Primary Keyword]**
-
-                                **Meta Description**: (155 characters max)
-
-                                **Learning Objectives** (3-4 bullets starting with action verbs)
-
-                                **Prerequisites**: What learners should know beforehand
-
-                                **Content Chapters**:
-                                Chapter 1: [Foundation concepts]
-                                Chapter 2: [Core methodology] 
-                                Chapter 3: [Advanced applications]
-                                Chapter 4: [Implementation & next steps]
-
-                                **Practical Exercises**: 2-3 actionable tasks
-
-                                **Success Metrics**: How to measure learning progress
-
-                                **Related Topics**: What to learn next
-                                ```
-
-                                ## 🛡️ **ERROR HANDLING:**  
-                                - If promotional content: Separate facts from marketing claims
-                                - If multiple topics: Create subsections for each major theme
-
-                                ## 🎯 **QUALITY BENCHMARKS:**
-                                - Every claim must be traceable to transcription (timestamp if present)
-                                - No assumptions beyond what's explicitly stated
-                                - Consistent formatting
-                                - Logical flow between sections
-
-                                ---
-                                **TRANSCRIPTION INPUT:**
-                                
-                                ${youTubeVideo.transcription}
-                                ```
-                            """.trimIndent(),
+                            prompt = agentPrompt,
                             youTubeVideoEntity = youTubeVideo,
                             onComplete = {
                                 aiNotesGeneratorViewModel.updateAIDailyLimit(prefs)
@@ -284,6 +195,8 @@ class AiNotesGeneratorViewModel(
     private val youTubeVideoDao = appDatabase.youtubeVideoDao()
     val aiResponse = MutableStateFlow("")
     val aiLimitCount = MutableStateFlow(0)
+
+    val agentPrompt = settingsViewModel.agentPrompt
 
     fun initializeDailyLimit(prefs: SharedPreferences) {
         viewModelScope.launch(Dispatchers.IO) {

@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -34,9 +36,10 @@ fun SettingsScreen(
 ) {
     val modelName by viewModel.modelName.collectAsState()
     val apiKey by viewModel.apiKey.collectAsState()
+    val agentPrompt by viewModel.agentPrompt.collectAsState()
 
     Column(
-        modifier = modifier,
+        modifier = modifier.verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -57,6 +60,14 @@ fun SettingsScreen(
             onValueChange = viewModel::updateApiKey,
             visualTransformation = PasswordVisualTransformation()
         )
+
+        Text("Digest Prompt")
+        TextField(
+            value = agentPrompt,
+            onValueChange = viewModel::updateAgentPrompt,
+            modifier = Modifier.height(500.dp)
+                .verticalScroll(rememberScrollState())
+        )
     }
 }
 
@@ -66,12 +77,20 @@ class SettingsViewModel(appContext: Context) : ViewModel() {
         private const val PREFS_NAME = "koog_settings"
         private const val KEY_MODEL_NAME = "model_name"
         private const val KEY_API_KEY = "api_key"
+
+        private const val KEY_AGENT_PROMPT = "key_agent_prompt"
     }
 
     private val prefs = appContext.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     val modelName = MutableStateFlow(prefs.getString(KEY_MODEL_NAME, "") ?: "")
 
     val apiKey = MutableStateFlow(prefs.getString(KEY_API_KEY, "") ?: "")
+
+    private val defaultPrompt = """
+        "You are a helpful assistant. Convert the following Youtube Video Transcription to TLDR and Key Insights in English",
+    """.trimIndent()
+
+    val agentPrompt = MutableStateFlow(prefs.getString(KEY_AGENT_PROMPT, defaultPrompt) ?: defaultPrompt)
 
     fun updateModelName(modelName: String) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -84,6 +103,13 @@ class SettingsViewModel(appContext: Context) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             this@SettingsViewModel.apiKey.update { apiKey }
             prefs.edit { putString(KEY_API_KEY, apiKey) }
+        }
+    }
+
+    fun updateAgentPrompt(agentPrompt: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            this@SettingsViewModel.agentPrompt.update { agentPrompt }
+            prefs.edit { putString(KEY_AGENT_PROMPT, agentPrompt) }
         }
     }
 }
